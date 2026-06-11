@@ -52,6 +52,21 @@ export default function Live() {
         </div>
       )}
 
+      {/* Математикалық онлайн құралдар */}
+      <div className="mt-8">
+        <h2 className="heading text-2xl font-extrabold mb-4">📐 {t('live.tools')}</h2>
+        <div className="flex flex-col gap-4 max-w-xl">
+          <button onClick={() => join('https://www.desmos.com/?lang=ru')}
+            className="btn-primary !py-4 w-full flex items-center justify-center gap-2 text-lg">
+            📈 Desmos
+          </button>
+          <button onClick={() => join('https://www.geogebra.org/suite')}
+            className="btn-primary !py-4 w-full flex items-center justify-center gap-2 text-lg">
+            📐 GeoGebra
+          </button>
+        </div>
+      </div>
+
       <div className="mt-6 text-center text-sm text-slate-400">{t('live.hint')}</div>
     </div>
   );

@@ -68,6 +68,51 @@ router.get('/analytics', protect, role('teacher', 'admin'), async (req, res) => 
   });
 });
 
+// Detailed student answers for the teacher, optionally filtered by topic / case / task.
+// Returns the tasks (with answer key + worked solution — teacher-only) and every
+// student submission (their actual answer text + correct/incorrect).
+router.get('/submissions', protect, role('teacher', 'admin'), async (req, res) => {
+  const myModules = await Module.find({ teacher: req.user._id }).select('_id');
+  const moduleIds = myModules.map(m => m._id);
+
+  const taskFilter = { module: { $in: moduleIds } };
+  if (req.query.topic) taskFilter.topic = req.query.topic;
+  if (req.query.case) taskFilter.case = req.query.case;
+  if (req.query.task) taskFilter._id = req.query.task;
+
+  const tasks = await Task.find(taskFilter).sort({ section: 1, difficulty: 1, _id: 1 });
+  const taskIds = tasks.map(t => t._id);
+
+  const submissions = await Submission.find({ task: { $in: taskIds } })
+    .populate('student', 'fullName grade avatar')
+    .sort({ createdAt: -1 });
+
+  res.json({
+    tasks: tasks.map(t => ({
+      _id: t._id,
+      title: t.title,
+      question: t.question,
+      topic: t.topic,
+      difficulty: t.difficulty,
+      type: t.type,
+      correctAnswer: t.correctAnswer,   // teacher-only
+      solution: t.solution              // teacher-only
+    })),
+    submissions: submissions
+      .filter(s => s.student)
+      .map(s => ({
+        _id: s._id,
+        task: String(s.task),
+        student: { _id: s.student._id, fullName: s.student.fullName, grade: s.student.grade },
+        answer: s.answer,
+        selectedIndex: s.selectedIndex,
+        isCorrect: s.isCorrect,
+        xpEarned: s.xpEarned,
+        createdAt: s.createdAt
+      }))
+  });
+});
+
 router.get('/students', protect, role('teacher', 'admin'), async (req, res) => {
   const list = await User.find({ role: 'student' })
     .select('fullName email avatar rating xp level streak school grade city');

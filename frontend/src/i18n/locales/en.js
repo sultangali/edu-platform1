@@ -89,6 +89,7 @@ export default {
     title: 'Live lessons',
     subtitle: "Join the teacher's Zoom conference in one click.",
     join: 'Join the lesson',
+    tools: 'Math tools',
     none: 'No live lessons scheduled yet.',
     hint: 'Clicking opens Zoom in a new tab.'
   },

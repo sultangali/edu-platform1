@@ -20,6 +20,13 @@ export default function TeacherDashboard() {
   const [selectedModule, setSelectedModule] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
   const [cases, setCases] = useState([]);
+  const [topicDetail, setTopicDetail] = useState(null); // { topic, loading, tasks, submissions }
+
+  const openTopic = async (topic) => {
+    setTopicDetail({ topic, loading: true });
+    const { data } = await api.get('/teacher/submissions', { params: { topic } });
+    setTopicDetail({ topic, loading: false, ...data });
+  };
 
   const reload = async () => {
     const [a, m] = await Promise.all([api.get('/teacher/analytics'), api.get('/modules')]);
@@ -220,7 +227,8 @@ export default function TeacherDashboard() {
       {tab === 'topics' && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {topicChart.map(t => (
-            <div key={t.topic} className="card">
+            <button key={t.topic} onClick={() => openTopic(t.topic)}
+              className="card text-left hover:-translate-y-1 hover:shadow-xl transition cursor-pointer">
               <div className="flex items-center justify-between mb-3">
                 <div className="font-display text-xl font-extrabold capitalize">{t.topic}</div>
                 <div className="pill bg-fuchsia-100 text-fuchsia-700">{t.accuracy}%</div>
@@ -232,10 +240,15 @@ export default function TeacherDashboard() {
                 <span>✅ Дұрыс: {t.correct}</span>
                 <span>📊 Барлығы: {t.total}</span>
               </div>
-            </div>
+              <div className="mt-3 text-fuchsia-600 font-bold text-sm">👁 Жауаптарды қарау →</div>
+            </button>
           ))}
           {topicChart.length === 0 && <div className="text-slate-500">Әлі деректер жоқ</div>}
         </div>
+      )}
+
+      {topicDetail && (
+        <TopicDetailModal data={topicDetail} lang={i18n.language} onClose={() => setTopicDetail(null)} />
       )}
 
       {showModuleForm && <ModuleForm initial={editingModule} onClose={() => setShowModuleForm(false)} onSaved={reload} />}
@@ -258,6 +271,77 @@ function Modal({ children, onClose, title }) {
           <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-rose-100 hover:text-rose-700 font-bold">✕</button>
         </div>
         <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Drill-down: every student's answer for a topic, grouped by task, with the answer key.
+function TopicDetailModal({ data, lang, onClose }) {
+  const { topic, loading, tasks = [], submissions = [] } = data;
+  const byTask = {};
+  for (const s of submissions) (byTask[s.task] = byTask[s.task] || []).push(s);
+  const totalCorrect = submissions.filter(s => s.isCorrect).length;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white/95 backdrop-blur z-10">
+          <div>
+            <h3 className="heading text-2xl font-extrabold capitalize">🏷️ {topic}</h3>
+            {!loading && (
+              <div className="text-sm text-slate-500">{tasks.length} тапсырма • {submissions.length} жауап • {totalCorrect} дұрыс</div>
+            )}
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-rose-100 hover:text-rose-700 font-bold">✕</button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {loading && <div className="text-center py-12 text-slate-500">Жүктелуде...</div>}
+
+          {!loading && tasks.map(tk => {
+            const subs = byTask[tk._id] || [];
+            return (
+              <div key={tk._id} className="rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="p-4 bg-slate-50">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="pill bg-slate-200 text-slate-700">{loc(tk.title, lang)}</span>
+                    <span className="pill bg-amber-100 text-amber-700">{tk.difficulty}</span>
+                    <span className="pill bg-cyan-100 text-cyan-700">{subs.length} жауап</span>
+                  </div>
+                  <div className="font-bold text-slate-800">{loc(tk.question, lang)}</div>
+                  {tk.correctAnswer && (
+                    <div className="mt-2 text-sm">
+                      <span className="font-bold text-emerald-700">🔑 Дұрыс жауап: </span>
+                      <span className="font-mono font-bold text-emerald-900">{tk.correctAnswer}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {subs.length === 0 && <div className="p-4 text-sm text-slate-400">Бұл тапсырмаға әлі жауап жоқ</div>}
+                  {subs.map(s => (
+                    <div key={s._id} className="flex items-center gap-3 p-3">
+                      <div className="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 text-white flex items-center justify-center text-xs font-bold">
+                        {s.student.fullName.split(' ').map(x => x[0]).slice(0, 2).join('')}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm">
+                          {s.student.fullName} <span className="text-slate-400 font-normal">{s.student.grade}</span>
+                        </div>
+                        <div className="text-sm text-slate-600 break-words">💬 {s.answer || '—'}</div>
+                      </div>
+                      <span className={`pill shrink-0 ${s.isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {s.isCorrect ? '✓ дұрыс' : '✗ қате'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {!loading && tasks.length === 0 && <div className="text-center py-12 text-slate-500">Тапсырма табылмады</div>}
+        </div>
       </div>
     </div>
   );
