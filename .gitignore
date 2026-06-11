@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Builds
+frontend/dist/
+dist/
+
+# Secrets — never commit real env files
+.env
+**/.env
+!**/.env.example
+!**/.env.production.example
+
+# Logs / PM2
+logs/
+**/logs/
+*.log
+.pm2/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Screenshots (not needed in the repo). The source .docx stay tracked —
+# they document where backend/src/data/problems90.js came from.
+Screenshot*.png
+
+# Python parser cache
+__pycache__/
+*.docx
+*.md
